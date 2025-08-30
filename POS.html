@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Adeen's Online Arena – POS System</title>
+  <style>
+    :root{
+      --bg:#0f172a;/*slate-900*/
+      --panel:#111827;/*gray-900*/
+      --soft:#1f2937;/*gray-800*/
+      --text:#e5e7eb;/*gray-200*/
+      --muted:#9ca3af;/*gray-400*/
+      --accent:#22c55e;/*green-500*/
+      --danger:#ef4444;/*red-500*/
+      --warn:#f59e0b;/*amber-500*/
+      --primary:#3b82f6;/*blue-500*/
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(120deg,#0b1226,#0a1328 50%,#0b1020);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial,"Noto Sans",sans-serif;}
+    .app{display:grid;grid-template-columns:300px 1fr 400px;gap:14px;padding:14px;min-height:100vh}
+    .card{background:linear-gradient(180deg,var(--panel),#0b1222);border:1px solid #1f2937;border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.25);}
+    .pad{padding:14px}
+    .title{font-size:18px;font-weight:700;margin:0 0 10px}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:10px;align-items:center}
+    .stretch{flex:1}
+    input,select,button{border-radius:12px;border:1px solid #2a3344;background:#0e1729;color:var(--text);padding:10px 12px}
+    input::placeholder{color:#6b7280}
+    button{cursor:pointer}
+    .btn-primary{background:linear-gradient(180deg,#2563eb,#1d4ed8);border-color:#1e40af}
+    .btn-ghost{background:transparent;border-color:#334155}
+    .btn-danger{background:linear-gradient(180deg,#ef4444,#dc2626);border-color:#b91c1c}
+    .btn-accent{background:linear-gradient(180deg,#22c55e,#16a34a);border-color:#15803d}
+    .chips{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{padding:8px 10px;border-radius:999px;border:1px solid #334155;background:#0b1324;font-size:12px;cursor:pointer}
+    .chip.active{background:#1d4ed8;border-color:#1e40af}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .product{border:1px solid #253249;background:linear-gradient(180deg,#122034,#0d1729);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+    .product .meta{padding:10px}
+    .product h4{margin:0 0 6px;font-size:14px}
+    .price{font-weight:700}
+    .badge{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid #334155;background:#0b1324;color:#cbd5e1}
+    .thumb{height:120px;background:#0b1425;display:grid;place-items:center;font-size:12px;color:#64748b}
+
+    /* cart */
+    .cart-list{display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto;padding-right:4px}
+    .cart-item{display:grid;grid-template-columns:1fr 80px 90px 30px;align-items:center;gap:8px;border:1px solid #233049;background:#0e1729;border-radius:12px;padding:8px}
+    .qty{display:flex;align-items:center;gap:6px}
+    .qty button{width:28px;height:28px;line-height:0;border-radius:8px;border:1px solid #334155;background:#0b1324}
+    .summary{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .summary .line{display:flex;justify-content:space-between;border:1px dashed #2b3546;border-radius:10px;padding:8px 10px}
+    .total{font-size:20px;font-weight:800}
+
+    /* header */
+    .header{display:flex;align-items:center;gap:10px;justify-content:space-between}
+    .store{display:flex;align-items:center;gap:10px}
+    .store-logo{width:36px;height:36px;border-radius:10px;background:#0e172a;border:1px solid #233049;display:grid;place-items:center}
+
+    /* responsive */
+    @media (max-width:1200px){.app{grid-template-columns:280px 1fr}}
+    @media (max-width:980px){.app{grid-template-columns:1fr;}.grid{grid-template-columns:repeat(2,1fr)}.cart-list{max-height:none}}
+    @media (max-width:520px){.grid{grid-template-columns:1fr}}
+
+    /* receipt print */
+    @media print{
+      body{background:white}
+      .app{display:block;padding:0}
+      .card{box-shadow:none;border:none}
+      #screen{display:none}
+      #receipt{display:block}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Left: Controls -->
+    <aside class="card pad" id="controls">
+      <div class="header">
+        <div class="store">
+          <div class="store-logo">🧾</div>
+          <div>
+            <div class="title">Adeen's Online Arena</div>
+            <div class="muted" id="date"></div>
+          </div>
+        </div>
+        <button class="btn-ghost" id="btn-print" title="Print last receipt">Print</button>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="row">
+        <input class="stretch" id="search" placeholder="Search product or scan barcode…" />
+        <button id="add-custom" title="Add custom item" class="btn-primary">+ Item</button>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="chips" id="categories"></div>
+
+      <div style="height:14px"></div>
+      <div class="row">
+        <label class="muted" style="font-size:12px">GST %</label>
+        <input id="gst" type="number" step="0.01" value="18" style="width:90px" />
+        <label class="muted" style="font-size:12px">Discount %</label>
+        <input id="disc" type="number" step="0.01" value="0" style="width:100px" />
+      </div>
+
+      <div style="height:14px"></div>
+      <div class="row">
+        <input id="customer" class="stretch" placeholder="Customer name (optional)" />
+        <select id="payment">
+          <option>Cash</option>
+          <option>Card</option>
+          <option>JazzCash</option>
+          <option>Easypaisa</option>
+          <option>Bank Transfer</option>
+        </select>
+      </div>
+
+      <div style="height:14px"></div>
+      <div class="row">
+        <input id="tendered" type="number" class="stretch" placeholder="Amount received (PKR)"/>
+        <button class="btn-accent" id="checkout">Checkout</button>
+      </div>
+
+      <div style="height:14px"></div>
+      <div class="row">
+        <button id="clear" class="btn-danger">Clear Cart</button>
+        <button id="save-invoice" class="btn-ghost stretch">Save Invoice</button>
+      </div>
+    </aside>
+
+    <!-- Middle: Catalog -->
+    <main class="card pad" id="catalog">
+      <h3 class="title">Products</h3>
+      <div class="grid" id="product-grid"></div>
+    </main>
+
+    <!-- Right: Cart -->
+    <section class="card pad" id="cart">
+      <h3 class="title">Cart</h3>
+      <div id="cart-list" class="cart-list"></div>
+
+      <div style="height:10px"></div>
+      <div class="summary">
+        <div class="line"><span>Subtotal</span><strong id="subtotal">—</strong></div>
+        <div class="line"><span>Discount</span><strong id="discount">—</strong></div>
+        <div class="line"><span>GST</span><strong id="tax">—</strong></div>
+        <div class="line"><span>Payable</span><strong id="payable" class="total">—</strong></div>
+      </div>
+      <div style="height:10px"></div>
+      <div class="line" style="display:flex;justify-content:space-between;border:1px solid #253249;border-radius:12px;padding:10px">
+        <span>Change Due</span>
+        <strong id="change">—</strong>
+      </div>
+    </section>
+  </div>
+
+  <!-- Hidden printable receipt -->
+  <section id="receipt" style="display:none;padding:20px;max-width:420px;margin:auto;color:#111;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace">
+    <div style="text-align:center">
+      <div style="font-size:20px;font-weight:800">Adeen's Online Arena</div>
+      <div style="font-size:12px">Lahore • Karachi • Islamabad</div>
+      <div id="rcpt-datetime" style="margin-top:6px;font-size:12px"></div>
+      <div id="rcpt-invoice" style="font-size:12px"></div>
+    </div>
+    <hr />
+    <div id="rcpt-customer" style="font-size:12px"></div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+      <thead>
+        <tr>
+          <th style="text-align:left">Item</th>
+          <th style="text-align:right">Qty</th>
+          <th style="text-align:right">Price</th>
+        </tr>
+      </thead>
+      <tbody id="rcpt-items"></tbody>
+    </table>
+    <hr />
+    <div style="font-size:12px">
+      <div style="display:flex;justify-content:space-between"><span>Subtotal</span><span id="rcpt-subtotal"></span></div>
+      <div style="display:flex;justify-content:space-between"><span>Discount</span><span id="rcpt-discount"></span></div>
+      <div style="display:flex;justify-content:space-between"><span>GST</span><span id="rcpt-tax"></span></div>
+      <div style="display:flex;justify-content:space-between;font-weight:800"><span>Total</span><span id="rcpt-total"></span></div>
+      <div style="display:flex;justify-content:space-between"><span>Paid via</span><span id="rcpt-method"></span></div>
+      <div style="display:flex;justify-content:space-between"><span>Tendered</span><span id="rcpt-tendered"></span></div>
+      <div style="display:flex;justify-content:space-between"><span>Change</span><span id="rcpt-change"></span></div>
+    </div>
+    <hr />
+    <div style="text-align:center;font-size:12px">Shukriya! For returns/exchange, keep this receipt within 7 days.</div>
+  </section>
+
+  <!-- Add Custom Item Modal (very simple) -->
+  <dialog id="modal" style="border:none;border-radius:14px;background:#0e1729;color:#e5e7eb;padding:16px;min-width:300px">
+    <h3 style="margin:0 0 10px">Add Custom Item</h3>
+    <div class="row"><input id="m-title" class="stretch" placeholder="Item name"/></div>
+    <div style="height:8px"></div>
+    <div class="row">
+      <input id="m-price" type="number" placeholder="Price (PKR)" class="stretch"/>
+      <input id="m-sku" placeholder="Barcode/SKU (opt)" class="stretch"/>
+    </div>
+    <div style="height:12px"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button id="m-cancel" class="btn-ghost">Cancel</button>
+      <button id="m-add" class="btn-primary">Add</button>
+    </div>
+  </dialog>
+
+  <script>
+    // --- Utilities ---
+    const fmt = new Intl.NumberFormat('en-PK',{style:'currency',currency:'PKR',maximumFractionDigits:0});
+    const today = () => new Date();
+    const uid = () => 'INV-' + today().toISOString().replace(/[-:TZ]/g,'').slice(0,14);
+
+    const db = {
+      get(key, fallback){ try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback } },
+      set(key, value){ localStorage.setItem(key, JSON.stringify(value)) }
+    };
+
+    // --- Seed Products (edit as needed) ---
+    const DEFAULT_PRODUCTS = [
+      {id:'EL-001', title:'Infinix Smart 8 (4/64GB)', price:23999, cat:'Electronics'},
+      {id:'EL-002', title:'Audionic Wireless Earbuds', price:3999, cat:'Electronics'},
+      {id:'CL-001', title:'Men\'s Kurta – Cotton', price:2490, cat:'Clothing'},
+      {id:'CL-002', title:'Women\'s Stitched Suit', price:5490, cat:'Clothing'},
+      {id:'GR-001', title:'Basmati Rice 5kg', price:1899, cat:'Grocery'},
+      {id:'GR-002', title:'Dalda Cooking Oil 5L', price:4299, cat:'Grocery'},
+      {id:'GR-003', title:'Sugar 1kg', price:220, cat:'Grocery'},
+      {id:'CS-001', title:'School Notebook (200pg)', price:180, cat:'Stationery'},
+      {id:'HB-001', title:'Head & Shoulders 360ml', price:780, cat:'Personal Care'},
+      {id:'HB-002', title:'Lifebuoy Soap 115g', price:130, cat:'Personal Care'},
+    ];
+
+    const state = {
+      products: db.get('pk_products', DEFAULT_PRODUCTS),
+      cart: db.get('pk_cart', []),
+      filter: {q:'', cat:'All'},
+      gst: db.get('pk_gst', 18),
+      disc: db.get('pk_disc', 0),
+      invoice: null,
+    };
+
+    // --- DOM Refs ---
+    const els = {
+      date: document.getElementById('date'),
+      search: document.getElementById('search'),
+      categories: document.getElementById('categories'),
+      grid: document.getElementById('product-grid'),
+      cartList: document.getElementById('cart-list'),
+      subtotal: document.getElementById('subtotal'),
+      discount: document.getElementById('discount'),
+      tax: document.getElementById('tax'),
+      payable: document.getElementById('payable'),
+      change: document.getElementById('change'),
+      gst: document.getElementById('gst'),
+      disc: document.getElementById('disc'),
+      tendered: document.getElementById('tendered'),
+      payment: document.getElementById('payment'),
+      customer: document.getElementById('customer'),
+      btnCheckout: document.getElementById('checkout'),
+      btnClear: document.getElementById('clear'),
+      btnPrint: document.getElementById('btn-print'),
+      btnSaveInvoice: document.getElementById('save-invoice'),
+      btnAddCustom: document.getElementById('add-custom'),
+      // receipt
+      rcpt:{
+        root: document.getElementById('receipt'),
+        dt: document.getElementById('rcpt-datetime'),
+        invoice: document.getElementById('rcpt-invoice'),
+        customer: document.getElementById('rcpt-customer'),
+        items: document.getElementById('rcpt-items'),
+        subtotal: document.getElementById('rcpt-subtotal'),
+        discount: document.getElementById('rcpt-discount'),
+        tax: document.getElementById('rcpt-tax'),
+        total: document.getElementById('rcpt-total'),
+        method: document.getElementById('rcpt-method'),
+        tendered: document.getElementById('rcpt-tendered'),
+        change: document.getElementById('rcpt-change'),
+      },
+      // modal
+      modal: document.getElementById('modal'),
+      mTitle: document.getElementById('m-title'),
+      mPrice: document.getElementById('m-price'),
+      mSku: document.getElementById('m-sku'),
+      mAdd: document.getElementById('m-add'),
+      mCancel: document.getElementById('m-cancel'),
+    };
+
+    // --- Init UI ---
+    function init(){
+      // Date in Asia/Karachi
+      try{
+        const pk = new Intl.DateTimeFormat('en-PK',{dateStyle:'full', timeStyle:'short', timeZone:'Asia/Karachi'}).format(new Date());
+        els.date.textContent = pk;
+      }catch{ els.date.textContent = new Date().toLocaleString(); }
+
+      els.gst.value = state.gst;
+      els.disc.value = state.disc;
+
+      renderCategories();
+      renderProducts();
+      renderCart();
+    }
+
+    function renderCategories(){
+      const cats = ['All', ...new Set(state.products.map(p=>p.cat))];
+      els.categories.innerHTML = '';
+      cats.forEach(c=>{
+        const b = document.createElement('button');
+        b.className = 'chip' + (state.filter.cat===c?' active':'');
+        b.textContent = c;
+        b.onclick = ()=>{ state.filter.cat=c; renderProducts(); };
+        els.categories.appendChild(b);
+      });
+    }
+
+    function renderProducts(){
+      const q = state.filter.q.toLowerCase();
+      els.grid.innerHTML = '';
+      state.products.filter(p=>
+        (state.filter.cat==='All' || p.cat===state.filter.cat) &&
+        (!q || p.title.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
+      ).forEach(p=>{
+        const card = document.createElement('div');
+        card.className = 'product';
+        card.innerHTML = `
+          <div class="thumb">${p.cat}</div>
+          <div class="meta">
+            <h4>${p.title}</h4>
+            <div class="row" style="justify-content:space-between">
+              <span class="price">${fmt.format(p.price)}</span>
+              <span class="badge">${p.id}</span>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn-primary stretch">Add</button>
+              <button class="btn-ghost" title="Scan/SKU to add" data-sku="${p.id}">Scan</button>
+            </div>
+          </div>`;
+        card.querySelector('.btn-primary').onclick = ()=> addToCart(p.id);
+        card.querySelector('[data-sku]').onclick = ()=> scanAdd(p.id);
+        els.grid.appendChild(card);
+      });
+    }
+
+    function scanAdd(sku){
+      // Simulate barcode scan by filling search box and adding
+      els.search.value = sku;
+      state.filter.q = sku;
+      addToCart(sku);
+    }
+
+    // Cart helpers
+    function addToCart(id){
+      const prod = state.products.find(p=>p.id===id);
+      if(!prod) return;
+      const row = state.cart.find(i=>i.id===id);
+      if(row) row.qty += 1; else state.cart.push({id:prod.id,title:prod.title,price:prod.price,qty:1});
+      persist();
+      renderCart();
+    }
+    function inc(id){ const r=state.cart.find(i=>i.id===id); if(r){ r.qty++; persist(); renderCart(); } }
+    function dec(id){ const r=state.cart.find(i=>i.id===id); if(r){ r.qty=Math.max(1,r.qty-1); persist(); renderCart(); } }
+    function del(id){ state.cart = state.cart.filter(i=>i.id!==id); persist(); renderCart(); }
+
+    function totals(){
+      const sub = state.cart.reduce((s,i)=> s + i.price*i.qty, 0);
+      const discount = sub * (Number(els.disc.value||0)/100);
+      const taxable = Math.max(0, sub - discount);
+      const tax = taxable * (Number(els.gst.value||0)/100);
+      const total = Math.round(taxable + tax);
+      return {sub, discount, tax, total};
+    }
+
+    function renderCart(){
+      els.cartList.innerHTML = '';
+      state.cart.forEach(i=>{
+        const row = document.createElement('div');
+        row.className = 'cart-item';
+        row.innerHTML = `
+          <div>
+            <div style="font-weight:600">${i.title}</div>
+            <div class="muted" style="font-size:12px">${i.id}</div>
+          </div>
+          <div class="qty">
+            <button title="Decrease">−</button>
+            <div>${i.qty}</div>
+            <button title="Increase">+</button>
+          </div>
+          <div style="text-align:right;font-weight:700">${fmt.format(i.price*i.qty)}</div>
+          <button title="Remove" style="border:none;background:transparent;color:var(--danger);font-size:18px">×</button>
+        `;
+        const [btnDec, btnInc] = row.querySelectorAll('.qty button');
+        btnDec.onclick = ()=> dec(i.id);
+        btnInc.onclick = ()=> inc(i.id);
+        row.querySelector('button[title="Remove"]').onclick = ()=> del(i.id);
+        els.cartList.appendChild(row);
+      });
+
+      const t = totals();
+      els.subtotal.textContent = fmt.format(t.sub);
+      els.discount.textContent = '- ' + fmt.format(t.discount);
+      els.tax.textContent = fmt.format(t.tax);
+      els.payable.textContent = fmt.format(t.total);
+
+      const tendered = Number(els.tendered.value||0);
+      els.change.textContent = tendered ? fmt.format(Math.max(0, tendered - t.total)) : '—';
+    }
+
+    function persist(){
+      db.set('pk_products', state.products);
+      db.set('pk_cart', state.cart);
+      db.set('pk_gst', Number(els.gst.value||0));
+      db.set('pk_disc', Number(els.disc.value||0));
+    }
+
+    // --- Events ---
+    els.search.addEventListener('input', (e)=>{
+      state.filter.q = e.target.value;
+      renderProducts();
+    });
+
+    els.gst.addEventListener('change', ()=>{ persist(); renderCart(); });
+    els.disc.addEventListener('change', ()=>{ persist(); renderCart(); });
+    els.tendered.addEventListener('input', renderCart);
+
+    els.btnClear.onclick = ()=>{ if(confirm('Clear cart?')){ state.cart=[]; persist(); renderCart(); } };
+
+    els.btnCheckout.onclick = ()=>{
+      if(state.cart.length===0) return alert('Cart is empty');
+      const t = totals();
+      const tendered = Number(els.tendered.value||0);
+      if(tendered < t.total) return alert('Amount received is less than total');
+
+      const inv = {
+        id: uid(),
+        at: new Date().toISOString(),
+        customer: els.customer.value||'Walk-in',
+        method: els.payment.value,
+        items: JSON.parse(JSON.stringify(state.cart)),
+        totals: t,
+        tendered,
+        change: tendered - t.total,
+      };
+      state.invoice = inv;
+      saveInvoice(inv);
+      printInvoice(inv);
+      // Reset cart
+      state.cart=[]; els.tendered.value=''; els.customer.value='';
+      persist(); renderCart();
+    };
+
+    function saveInvoice(inv){
+      const all = db.get('pk_invoices', []);
+      all.unshift(inv);
+      db.set('pk_invoices', all);
+    }
+
+    els.btnSaveInvoice.onclick = ()=>{
+      if(!state.invoice) return alert('No invoice yet. Complete a checkout first.');
+      alert('Invoice saved locally. You can print again anytime.');
+    };
+
+    els.btnPrint.onclick = ()=>{
+      const last = db.get('pk_invoices', [])[0];
+      if(!last) return alert('No invoices to print yet.');
+      printInvoice(last);
+    };
+
+    // Modal add custom item
+    els.btnAddCustom.onclick = ()=>{ els.modal.showModal(); els.mTitle.focus(); };
+    els.mCancel.onclick = ()=> els.modal.close();
+    els.mAdd.onclick = ()=>{
+      const title = els.mTitle.value.trim();
+      const price = Number(els.mPrice.value||0);
+      const sku = els.mSku.value.trim() || ('CU-' + Math.random().toString(36).slice(2,7).toUpperCase());
+      if(!title || !price) return alert('Enter name and price');
+      const item = {id: sku, title, price, cat:'Custom'};
+      state.products.unshift(item);
+      addToCart(item.id);
+      persist(); renderCategories(); renderProducts();
+      els.modal.close(); els.mTitle.value=''; els.mPrice.value=''; els.mSku.value='';
+    };
+
+    // --- Printing ---
+    function printInvoice(inv){
+      // Fill receipt fields
+      try{
+        els.rcpt.dt.textContent = new Intl.DateTimeFormat('en-PK',{dateStyle:'medium', timeStyle:'short', timeZone:'Asia/Karachi'}).format(new Date(inv.at));
+      }catch{ els.rcpt.dt.textContent = new Date(inv.at).toLocaleString(); }
+      els.rcpt.invoice.textContent = inv.id;
+      els.rcpt.customer.textContent = 'Customer: ' + inv.customer;
+      els.rcpt.items.innerHTML = '';
+      inv.items.forEach(i=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i.title}</td><td style="text-align:right">${i.qty}</td><td style="text-align:right">${fmt.format(i.price*i.qty)}</td>`;
+        els.rcpt.items.appendChild(tr);
+      });
+      els.rcpt.subtotal.textContent = fmt.format(inv.totals.sub);
+      els.rcpt.discount.textContent = '- ' + fmt.format(inv.totals.discount);
+      els.rcpt.tax.textContent = fmt.format(inv.totals.tax);
+      els.rcpt.total.textContent = fmt.format(inv.totals.total);
+      els.rcpt.method.textContent = inv.method;
+      els.rcpt.tendered.textContent = fmt.format(inv.tendered);
+      els.rcpt.change.textContent = fmt.format(inv.change);
+
+      // Open system print dialog
+      window.print();
+    }
+
+    // Barcode quick-add via search + Enter
+    els.search.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){
+        const code = e.target.value.trim();
+        const p = state.products.find(x=>x.id.toLowerCase()===code.toLowerCase());
+        if(p){ addToCart(p.id); e.target.select(); }
+        else alert('No product with this SKU');
+      }
+    });
+
+    // Startup
+    init();
+  </script>
+</body>
+</html>
