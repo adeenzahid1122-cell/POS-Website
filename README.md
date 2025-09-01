@@ -6,6 +6,9 @@ All data is saved locally using **LocalStorage**, so it works offline as well.
 
 ---
 
+https://adeenzahid1122-cell.github.io/POS-Website/
+
+---
 ## 🚀 Features
 - 📦 Product catalog with search & categories  
 - ➕ Add custom products (saved in browser)  
